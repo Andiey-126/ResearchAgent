@@ -1,0 +1,8 @@
+# open source demo without a license: local reference only
+example_program/
+
+# contain highly sensitive information (API)
+.env
+
+# skill issue, not project content
+issue.md
