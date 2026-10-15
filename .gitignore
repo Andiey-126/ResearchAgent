@@ -6,3 +6,9 @@ example_program/
 
 # skill issue, not project content
 issue.md
+
+__pycache__/
+test.md
+fake_secret.txt
+output/
+notes/

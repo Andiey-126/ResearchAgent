@@ -2,35 +2,61 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import asyncio
-from claude_agent_sdk import ClaudeAgentOptions, query, SystemMessage, AssistantMessage, TextBlock, ResultMessage
+from claude_agent_sdk import (ClaudeAgentOptions, query, SystemMessage, AssistantMessage, 
+                              UserMessage, TextBlock, ToolUseBlock, ResultMessage, ToolResultBlock)
+from check_tools import check_tool
+from initialization import initialize_notes
 
 async def main():
-    options = ClaudeAgentOptions(model="haiku",       # model is haiku, the cheapest model
-                                 max_budget_usd=0.15, # stop this query() run once estimated spend reaches this
-                                 tools=[],            # tools off all 
-                                 setting_sources=[],  # load no filesystem settings
+    initialize_notes()
+
+    options = ClaudeAgentOptions(model="haiku",                   # model is haiku, the cheapest model
+                                 setting_sources=[],              # load no filesystem settings
+                                 tools=["Read", "Write"],         # this determine the tools be found by model
+                                 can_use_tool=check_tool,         # if claude code not sure the tool can be called or not, it will check the tool function
+                                 permission_mode="default",
+                                 max_budget_usd=0.30,             # stop this query() run once estimated spend reaches this
                                  )
     # input the user message
     prompt = input("Chat: ")
-    
-    async for message in query(prompt=prompt, options=options):
-        print(type(message).__name__)
 
-        # check if it is the systemMessage: The notification of state
-        if isinstance(message, SystemMessage):
-            print(message.subtype)
-            print(message.data)     # full original data of this information 
-        # check if it is the ai feedback
-        elif isinstance(message, AssistantMessage):
-            for block in message.content: # message.content contain multiple pieces(block)
-                print(block)
+    async for message in query(prompt=prompt, options=options):
+        # check if it is the ai feedback (the model output)
+        if isinstance(message, AssistantMessage):
+            for block in message.content: # message contain multi pieces of information
+                # the assistant response
                 if isinstance(block, TextBlock):
                     print(block.text, end="")
+                # Tool Requisition Form
+                elif isinstance(block, ToolUseBlock):
+                    print(block.name)  # tool name
+                    print(block.input) # local file path
+            print()
+        
+        # check if it is the system message, which will show model configuration
+        elif isinstance(message, SystemMessage):
+            if message.subtype == "init":
+                print(f"CLI version: {message.data.get('claude_code_version')}") # add one line (the native CLI auto-updates, so record which version ran)
+                print(f"Model: {message.data.get('model')}")
+                print(f"Tools: {message.data.get('tools')}")
+                print(f"Session_id: {message.data.get('session_id')}")
+        
+        # monitor claude code send model's feedback
+        elif isinstance(message, UserMessage):
+            if isinstance(message.content, list):
+                for block in message.content:
+                    if isinstance(block, ToolResultBlock):
+                        print(f"is_error: {block.is_error}")
+                        print(f"content: {str(block.content)[:200]}")
+        
+        # check if it is the result data, which will show info like end type and costs
         elif isinstance(message, ResultMessage):
-            print(message.subtype)
-            print(message.num_turns)
-            print(message.total_cost_usd)
-    print()
+            print(f"Message subtype: {message.subtype}") # show how this agent endup
+            print(f"Message number of turns: {message.num_turns}")
+            print(f"Message duration: {message.duration_ms}")
+            print("Total cost:","unknown" if message.total_cost_usd is None else message.total_cost_usd)
+            if message.subtype == "success":
+                print(message.result)
 
 if __name__ == "__main__":
     asyncio.run(main())
