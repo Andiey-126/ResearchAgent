@@ -21,7 +21,7 @@
 |---|---|
 | 更新日期 | 2026-10-15 |
 | 当前阶段 | **阶段 1 ✅ 完成（2026-10-15）**：知识点 1、2、3 完成；阶段 1 测验通过；迁移任务（L3）5 次运行 + “搬家”（方案 C）+ 搬家后回归 2 次运行（成功路径、写错位置）全部完成 |
-| 下一步 | **开新对话（用户要求）做阶段 2 · 知识点 4（子 agent）**。开场先给回顾卡（`issue.md` 第 14 条），确认搬家结果（三个文件：`main.py` / `check_tools.py` / `path.py`；路径由 `path.py` 用 `__file__` 算出；不用再选结构方案）。遗留给后面：① 项目内读文件不受检查函数控制（知识点 9 hook / 知识点 10 带范围规则回头解决）；② 子 agent 消息进循环后评估消息循环是否单开文件；③ 可改进项：`check_Write`→`check_write`（PEP 8）、`absolute_path` 命名、`is_relative_to`、`paths.py` 改名、`ClaudeAgentOptions(cwd=ROOT)`；④ 搬家后回归只重跑了 2 次，错文件类型 / 执行命令 / 读假秘密文件 3 次有意跳过（逻辑未改） |
+| 下一步 | **开新对话（用户要求）做阶段 2 · 知识点 4（子 agent）**。开场先给回顾卡（`issue.md` 第 14 条），确认搬家结果（四个文件：`main.py` / `check_tools.py` / `path.py` / `initialization.py`；路径由 `path.py` 用 `__file__` 算出；不用再选结构方案）。项目已推送到 GitHub（`Andiey-126/ResearchAgent`，公开），之后每个知识点结束可以 `git add .` → `git commit` → `git push`。遗留给后面：① 项目内读文件不受检查函数控制（知识点 9 hook / 知识点 10 带范围规则回头解决）；② 子 agent 消息进循环后评估消息循环是否单开文件；③ 可改进项：`check_Write`→`check_write`（PEP 8）、`absolute_path` 命名、`is_relative_to`、`paths.py` 改名、`ClaudeAgentOptions(cwd=ROOT)`；④ 搬家后回归只重跑了 2 次，错文件类型 / 执行命令 / 读假秘密文件 3 次有意跳过（逻辑未改） |
 | 前置概念状态 | 进程：2026-10-01 补讲后复述过关（见 `review.md` Q1）；`async`：2026-10-01 补讲后检查题过关（见 `review.md` Q2） |
 | 当前支持级别 | **L2**（2026-10-02 起，知识点 3 开场时用户决定） |
 | 待定事项 | 阶段 5 做不做：前 4 个阶段结束后再判断 |
@@ -520,3 +520,11 @@
   - 结论：搬家前后行为一致；路径来源已改成由 `path.py` 自己的位置算出，运行位置不影响结果
 - 阶段 1 收尾（2026-10-15）：
   - 本次教学自查补充：① 用户觉得“浪费太多时间在查问题上”，我同意减少回归次数，并说明跳过了什么、为什么（没有悄悄跳过）；② 路径提示给了接子文件夹的符号写法（`某路径 / "data"`），属于卡住后的提示，没有替用户写出 `path.py` 的最终两行；③ 用户把两个报错原因混在一起（`+` 报错和 `/` 配反斜杠丢根），已分开纠正；④ 好的一点：用户的自测预测写了理由，且预测与结果一致；运行结果都用文件夹实际内容核对，而不是只看模型说的话
+- 上传 GitHub（2026-10-15 17:41–18:01，用户有教学外的需求：“放进 GitHub，请教我一下”，L2 讲解、用户自己运行命令）：
+  - 现状检查：仓库早就有（`main` 分支、2 个存档点），**没有远端**；`git ls-files` 只记录 4 个文件（`.gitignore`、`.vscode/settings.json`、`README.md`、`main.py`），`.env` 从未被记录过（上传前最重要的检查，通过）
+  - `.gitignore` 最终 8 条：`example_program/`、`.env`、`issue.md`、`__pycache__/`、`test.md`、`fake_secret.txt`、`output/`、`notes/`。用户的判断：测试文件和程序输出不放进仓库，用 `.gitignore` 管；他对 `.gitignore` 的理解“能控制之后的所有变动”只对一半（只管还没被记录的文件，已记录的要另外处理）；`_learning/` 上传，仓库设公开，作者邮箱不介意公开
+  - `notes/` 的取舍：我没替他定；他决定忽略，并写 `initialization.py`（`initialize_notes()`，`mkdir(parents=True, exist_ok=True)`，在 `main.py` 顶层调用）启动时自动创建。第 1 版有两个错：`from initialization` 没写完、`"notes" not in root`（路径对象不能这样问，且 `mkdir` 的 `exist_ok=True` 已含检查）；第 2 版读回通过（语法检查通过，**没有运行验证**）。遗留：`initialization.py` 里 `Path` 没用到、`root / "notes"` 应改用 `path.py` 的 `notes_path`、`initialize_notes()` 更适合放进 `main()` 开头；`Write` 是否自动创建 `output/` 没测过
+  - 用户两次说“没太多时间”：一次“不预测了，直接改了”（接受，因为是读回确认的小改动，但提醒过没有运行验证）
+  - 提交：`git add .` 后 `git status` 绿色栏正确（没有 `.env`、`notes/`、`output/` 等）；`git commit -m "The first status finish. Prepare second"` → `997f481`，9 个文件；说明太含糊，已告知可用 `git commit --amend -m` 在推送前改写，用户没改；笔误 `--online`（应为 `--oneline`）、`git remote add origin` 漏了地址，都没造成问题
+  - 远端：`git remote add origin https://github.com/Andiey-126/ResearchAgent.git`，`git remote -v` 两行正确；`git push -u origin main` 成功（用户说“成功放进去了”，终端输出没有发给我）
+  - 推送后学习文档又改了一次（加入 `initialization.py` 与 git 记录），**这部分改动还没提交 / 推送**
