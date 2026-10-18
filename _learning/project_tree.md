@@ -17,7 +17,7 @@
 │   └── ✅ 3  工具的"看得见"和"被批准"              核心·可推理型   依赖 2
 │       → 阶段 1 测验 ✅ + 迁移任务 ✅（2026-10-15）
 ├── 阶段 2 · 委派边界（项目核心）
-│   ├── 🟨 4  最小两层 + 上下文隔离                 核心·可推理型   依赖 3
+│   ├── ✅ 4  最小两层 + 上下文隔离                 核心·可推理型   依赖 3
 │   ├── ⬜ 5  派单契约                              核心·可推理型   依赖 4
 │   └── ⬜ 6  用文件交接                            核心·可推理型   依赖 4
 │       → 阶段 2 测验 + 迁移任务
@@ -45,7 +45,7 @@
 ├── .gitignore           # 忽略 example_program/、.env、issue.md、__pycache__/、test.md、fake_secret.txt、output/、notes/、personal_notes/
 ├── .vscode/
 │   └── settings.json    # VS Code 使用 conda 环境
-├── main.py              # 只放 SDK 主流程：load_dotenv、ClaudeAgentOptions（tools=["Read","Write","Agent"]、agents={"researcher": researcher}、can_use_tool=check_tool、permission_mode="default"、max_budget_usd）、query() 循环（init / 文字 / 调用单 / 结果单 / 结束账单）
+├── main.py              # 只放 SDK 主流程：load_dotenv、ClaudeAgentOptions（tools=["Read","Write","Agent"]、agents={"researcher": researcher}、can_use_tool=check_tool、permission_mode="default"、max_budget_usd）、query() 循环（init / 文字 / 调用单含 id / 结果单含 tool_use_id / UserMessage 字符串 / 结束账单；每条 Assistant / User 消息先打印 [main] 或 [sub]: parent_tool_use_id）
 ├── check_tools.py       # 检查函数：check_tool（入口，按 tool_name 分支）、check_Write（只准写 output/ 下的 .md）、check_Read（只准读 notes/，项目内读文件实际不经过它）；用 path 里的两个路径
 ├── initialization.py    # 启动时自动创建 notes/ 文件夹：initialize_notes()（mkdir，已存在就跳过）；在 main() 第一行调用，目前直接用 root / "notes"（计划改成 notes_path）；截至 2026-10-17 从未运行过
 ├── agents.py            # 子 agent 定义：researcher = AgentDefinition(description、prompt=researcher_prompt、tools=["Read","Write"]、model="haiku")；由 main.py 引用（2026-10-18 建）
