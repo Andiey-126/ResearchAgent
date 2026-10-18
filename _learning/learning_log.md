@@ -19,9 +19,9 @@
 
 | 项 | 内容 |
 |---|---|
-| 更新日期 | 2026-10-15 |
-| 当前阶段 | **阶段 1 ✅ 完成（2026-10-15）**：知识点 1、2、3 完成；阶段 1 测验通过；迁移任务（L3）5 次运行 + “搬家”（方案 C）+ 搬家后回归 2 次运行（成功路径、写错位置）全部完成 |
-| 下一步 | **开新对话（用户要求）做阶段 2 · 知识点 4（子 agent）**。开场先给回顾卡（`issue.md` 第 14 条），确认搬家结果（四个文件：`main.py` / `check_tools.py` / `path.py` / `initialization.py`；路径由 `path.py` 用 `__file__` 算出；不用再选结构方案）。项目已推送到 GitHub（`Andiey-126/ResearchAgent`，公开），之后每个知识点结束可以 `git add .` → `git commit` → `git push`。遗留给后面：① 项目内读文件不受检查函数控制（知识点 9 hook / 知识点 10 带范围规则回头解决）；② 子 agent 消息进循环后评估消息循环是否单开文件；③ 可改进项：`check_Write`→`check_write`（PEP 8）、`absolute_path` 命名、`is_relative_to`、`paths.py` 改名、`ClaudeAgentOptions(cwd=ROOT)`；④ 搬家后回归只重跑了 2 次，错文件类型 / 执行命令 / 读假秘密文件 3 次有意跳过（逻辑未改） |
+| 更新日期 | 2026-10-17 |
+| 当前阶段 | **阶段 2 · 知识点 4 🟨 开场（2026-10-17）**；阶段 1 ✅ 完成（2026-10-15）：知识点 1、2、3 完成；阶段 1 测验通过；迁移任务（L3）5 次运行 + “搬家”（方案 C）+ 搬家后回归 2 次运行（成功路径、写错位置）全部完成 |
+| 下一步 | **知识点 4 三个问题都有答案（2026-10-18）**，等用户：① 清理观察代码（他决定哪些留）；② 发来读回检查。之后对照 demo、写收尾，标 ✅，进知识点 5。遗留给后面：① 项目内读文件不受检查函数控制（知识点 9 hook / 知识点 10 带范围规则回头解决）；② 子 agent 消息进循环后评估消息循环是否单开文件；③ 可改进项：`check_Write`→`check_write`（PEP 8）、`absolute_path` 命名、`is_relative_to`、`path.py`→`paths.py`、`initialization.py` 改用 `notes_path`、`ClaudeAgentOptions(cwd=root)`；④ `initialization.py` 从未运行过（`__pycache__` 里没有它的缓存文件）；⑤ 搬家后回归只重跑了 2 次，错文件类型 / 执行命令 / 读假秘密文件 3 次有意跳过（逻辑未改） |
 | 前置概念状态 | 进程：2026-10-01 补讲后复述过关（见 `review.md` Q1）；`async`：2026-10-01 补讲后检查题过关（见 `review.md` Q2） |
 | 当前支持级别 | **L2**（2026-10-02 起，知识点 3 开场时用户决定） |
 | 待定事项 | 阶段 5 做不做：前 4 个阶段结束后再判断 |
@@ -39,6 +39,25 @@
 - 每个阶段开一个新对话；本文件必须记录到能无缝衔接的程度
 - 运行前预测（2026-10-02 用户决定）：用户先写预测、再直接运行，**预测和结果放在同一条消息里一起发**；我批改时先逐条对照预测，再讲结果
 - 术语记不住（2026-10-02 用户说"Claude Code 子进程标准输出"这类词记不住）：**判分看机制，不看术语**——用大白话说对过程就算对；讲解用大白话，固定只用少数几个名字：**Python 程序**（你写的 `main.py`）、**Claude Code 程序**（`query()` 启动的那个程序）、**模型**（在 Anthropic 服务器上）；新术语只在确实需要时引入，并且当场解释
+- 模块化架构（2026-10-18 用户要求记下）：**学习过程的同时学会自己设计模块化架构**——结构决策尽量让用户自己设计（文件怎么分、谁引用谁、放哪），我给选项、代价和检查
+- prompt 统一管理（2026-10-18 用户提出）：主 agent 和所有子 agent 的 prompt 都应独立保存、放在一个专门的地方统一管理（他看到 demo 原项目也是这样）
+
+## 固定词汇表（2026-10-17 加；讲解和题目只用这些词，用户忘了哪个就先看这里）
+
+- **Python 程序**：你写的 `main.py` 跑起来的那个程序
+- **Claude Code 程序**：`query()` 启动的另一个程序；agent 循环跑在它里面，工具也由它执行
+- **模型**：在 Anthropic 服务器上，只会读文字、写文字，自己执行不了任何东西
+- **工具清单**：`tools=[...]`；发给模型的"这次你能用哪些工具"；不在清单上的工具，模型开不出调用单
+- **调用单**：模型写出的"请帮我用某个工具"的请求，带工具名、参数、编号；Python 程序里是 `AssistantMessage` 里的 `ToolUseBlock`
+- **结果单**：Claude Code 程序执行（或拒绝执行）一张调用单之后，写回给模型的那张单，带对回调用单的编号、内容、是否出错；Python 程序里是 `UserMessage` 里的 `ToolResultBlock`
+- **"可以执行"的规则**：`allowed_tools`；写进去的调用单不再问，直接执行
+- **"不准执行"的规则**：`disallowed_tools`；写进去的调用单一律不执行，排在检查顺序第一
+- **检查函数**：`can_use_tool=check_tool`；前面几步都没给出答案时，Claude Code 程序来问 Python 程序里的这个函数
+- **主 agent**（知识点 4 起）：Python 程序直接对话的那个 agent
+- **子 agent**（知识点 4 起）：被主 agent 叫去做一部分活的另一个 agent
+- **Agent 调用单**（知识点 4 起）：主 agent 的模型对 Agent 工具开的调用单，写着派给谁（`input["subagent_type"]`）和任务那段话（`input["prompt"]`）；执行它 = Claude Code 程序新开一个子 agent
+- **子 agent 定义**（知识点 4 起）：`AgentDefinition`，Python 程序事先写好的"角色卡"（`description` 介绍、`prompt` 子 agent 自己的系统 prompt、`tools` 子 agent 自己的工具清单），通过 `ClaudeAgentOptions(agents={名字: ...})` 交出去
+- **标记**（知识点 4 起）：消息上的 `parent_tool_use_id`；主 agent 的消息为 `None`，子 agent 的消息 = 派活那张 Agent 调用单的编号
 
 ---
 
@@ -48,7 +67,7 @@
 |---|---|
 | 系统 | Windows |
 | Python 环境 | conda 环境 `claude_agent_sdk` |
-| SDK 版本 | `claude-agent-sdk` 0.2.162，2026-10-01 用户确认。**更正（2026-10-01）**：PyPI 上 0.2.160–0.2.163 没有 Windows wheel，Windows 上装的是源码包，**不带**命令行程序（原先写的"内置 2.1.285"是按 Linux 包查的，错了）；用户选方案 A，装了原生版 Claude Code（`~\.local\bin\claude.exe`），2026-10-01 能跑通；SDK 实际启动的命令行程序是 2.1.286（2026-10-01 从 init 的 `claude_code_version` 读出），与 0.2.163 配套的版本相同 |
+| SDK 版本 | `claude-agent-sdk` 0.2.162，2026-10-01 用户确认。**更正（2026-10-01）**：PyPI 上 0.2.160–0.2.163 没有 Windows wheel，Windows 上装的是源码包，**不带**命令行程序（原先写的"内置 2.1.285"是按 Linux 包查的，错了）；用户选方案 A，装了原生版 Claude Code（`~\.local\bin\claude.exe`），2026-10-01 能跑通；SDK 实际启动的命令行程序是 2.1.286（2026-10-01 从 init 的 `claude_code_version` 读出），与 0.2.163 配套的版本相同。**2026-10-17 用户确认**：仍是 0.2.162，命令行程序 2.1.288 |
 | 当时最新版本 | 0.2.163（命令行程序 2.1.286），与本项目无关的改动 |
 | 起点代码 | `main.py`：一个 agent，`query()` 循环，`tools=[]`，`setting_sources=[]`，haiku，`max_budget_usd=0.30`，只打印消息类型和文字 |
 | 参考答案 | `example_program/`：anthropics/claude-agent-sdk-demos 的 research-agent（commit `826b268`）。只读；仓库没有 license，不公开发布（已在 `.gitignore` 中忽略） |
@@ -528,3 +547,144 @@
   - 提交：`git add .` 后 `git status` 绿色栏正确（没有 `.env`、`notes/`、`output/` 等）；`git commit -m "The first status finish. Prepare second"` → `997f481`，9 个文件；说明太含糊，已告知可用 `git commit --amend -m` 在推送前改写，用户没改；笔误 `--online`（应为 `--oneline`）、`git remote add origin` 漏了地址，都没造成问题
   - 远端：`git remote add origin https://github.com/Andiey-126/ResearchAgent.git`，`git remote -v` 两行正确；`git push -u origin main` 成功（用户说“成功放进去了”，终端输出没有发给我）
   - 推送后学习文档又改了一次（加入 `initialization.py` 与 git 记录），**这部分改动还没提交 / 推送**
+
+---
+
+### 知识点 4 · 最小两层 + 上下文隔离（🟨 2026-10-17 开场）
+
+- 开场：2026-10-17 发出（新对话）。先给了 5 行回顾卡（`issue.md` 第 14 条），再确认搬家结果
+- 搬家结果确认（读回 4 个文件，2026-10-17）：`main.py` / `check_tools.py` / `path.py` / `initialization.py` 平铺在根目录；`path.py` 用 `Path(__file__).resolve().parent` 算 `root`，`notes_path` / `output_path` 从 `root` 接出；`main.py` 上次多余的三个 import 已删；`check_tools.py` 逻辑未变；`initialization.py` 仍用 `root / "notes"`（未改用 `notes_path`），`initialize_notes()` 已在 `main()` 第一行调用；`__pycache__` 里只有 `check_tools`、`path` 的缓存，没有 `initialization` 的——它从未被运行过
+- 开场复盘：跨对话，读迁移任务的“教学自查”。违规 4 条：① 归错步骤（原话“检查顺序里权限模式那一步，默认模式对读文件好像已经有答案”）；② 隔 6 天回来没给回顾卡；③ 回归测试先定成“全部 5 次”（`issue.md` 第 15 条）；④ `__file__` 等没教过的小工具没在题面点名（`issue.md` 第 16 条）。其余无违规
+- 间隔复习候选（逐题写出完整问题，用户挑 1–2）：Q11（1 级，10-02）、Q13（1 级，10-07）、Q10（1 级，10-07）、Q9（2 级，10-07，和本知识点直接相关）
+- 支持级别：L2（知识点 3 用了 1 次卡住升级，升 L3 计数 0/2；迁移任务按 L3 单独算，不计入）
+- 路径：计划表写“核心·可推理型”（L1 时定）；按 L2 先请用户判断。开场只说了本知识点要解决的问题，没说答案（`issue.md` 第 7 条）
+- 代码分类：按 `issue.md` 第 6 条放到代码阶段开头再做
+- 本知识点要回答的 3 个问题：① 主 agent 把活交出去、以及子 agent 自己干活时，Python 程序收到的消息分别是什么样、怎么认出是谁的；② 子 agent 能看到主 agent 这边的哪些内容（用实验回答）；③ 子 agent 开出的调用单还会不会问到我们的检查函数（官方文档没写明，**未查证**，实测）
+- 完成标志：3 个问题都有运行结果为证；收尾能用自己的话说出子 agent 看到什么、交回什么、为什么这样设计
+- 代码级查证（2026-10-17）：
+  - 用户环境：SDK 0.2.162、命令行程序 2.1.288（**2026-10-17 用户确认**，与 10-07 相同）
+  - 当时最新：SDK 0.2.168（PyPI，2026-10-15）；0.2.167 内置命令行程序 2.1.300。CHANGELOG 0.2.163–0.2.167 没有与子 agent、`AgentDefinition`、`parent_tool_use_id`、权限相关的改动（0.2.166 只是给 hook 和 init 消息补类型）
+  - 0.2.162 源码 `types.py`：`AgentDefinition`（第 108 行）、`ClaudeAgentOptions.agents: dict[str, AgentDefinition] | None`（第 2291 行）、`UserMessage` / `AssistantMessage` 都有 `parent_tool_use_id: str | None = None`（第 1129、1144 行）、`TaskStartedMessage` / `TaskProgressMessage` / `TaskNotificationMessage` 都是 `SystemMessage` 的子类（第 1194、1211、1229 行）
+  - 官方文档 Subagents 页（2026-10-17 读原文）：派单工具在调用单里叫 `Agent`、在 init 工具列表里叫 `Task`；子 agent 收到的 = 自己的系统 prompt + 派单那段话（+ 工具定义、项目 CLAUDE.md），收不到主 agent 的历史、工具结果和系统 prompt；只有最后一条消息回到主 agent；子 agent 默认后台运行。来源：https://code.claude.com/docs/en/agent-sdk/subagents
+- 用户回复（2026-10-17 15:14）：
+  - 回顾卡：没问题
+  - 间隔复习：Q11 作答（2 级，"交给谁"没分开）；Q10 没作答，问"什么是结果单？指的是啥？"——固定词汇忘了（记 0 级）。我用回归 2 的真实例子讲了调用单 / 结果单，在本文件顶部加了"固定词汇表"（`issue.md` 第 17 条），请他可选再试 Q10
+  - 安排：确认，无修改
+  - 路径判断：用户"SDK 规定型。我认为多 agent 应该早就有官方写法了"。判定：结论不对，理由没对准标准（和知识点 3 开场同一类问题）——"有官方写法"每个知识点都成立（知识点 3 的 `can_use_tool` 也有官方写法，但"看得见 / 被批准"是他自己推出来的）；标准是"能不能从问题的限制推出做法"。本知识点的核心问题（子 agent 看到什么、交回什么、怎么交出去）能从限制推出 → 核心·可推理型；其中参数名（`agents`、`AgentDefinition` 等）是规定的，按 L2 在代码阶段直接给。规定型的例子：知识点 11 的环境变量名和默认值 3。等用户接受或反对
+- 用户回复（2026-10-17 15:23）：
+  - Q10 再试：答不出，"我感觉我根本就没思考过这个问题"（记 0；原因见 `issue.md` 第 18 条；代码阶段在真实数据里重学）
+  - 路径：接受核心·可推理型。他的理解"有的已经规定了，但鉴于我们项目的特殊要求，有些需要推出来"——当场纠正一处：要推的部分不是因为项目特殊，任何多 agent 系统都有同样的限制；只有参数名是规定的。不再追问
+- 原理第 1–3 步（2026-10-17，单独一条回复）：
+  - 用到的前置概念先讲清：系统 prompt（一句话定义）、"每一轮把整份历史重发给模型"（Q7 曾漏答，用回归 2 的真实历史举例）
+  - 限制条件（只讲事实）：① 模型不记事，每轮读整份历史；② 历史有长度上限，越长越贵越慢，无关内容多了容易抓不住重点（标明是经验规律）；③ 模型只会写文字和开调用单，想让事情发生只能经过 Claude Code 程序；④ 子 agent 也是一个模型，每轮只看到发给它的那份历史
+  - 问题（场景：问"FastAPI 和 Flask 哪个更适合做小项目"，主 agent 派研究员查 FastAPI，研究员会读 10 个网页、开十几张调用单）：① 主 agent 的模型要让研究员开始干活，具体输出什么；② 研究员第一轮的历史里该有什么，主 agent 历史里的说明书 / 你的问题 / 拆分方案哪些给、哪些不给，各给理由；③ 研究员干完后主 agent 的历史里该多出什么，网页、调用单、结果单哪些进主 agent 的历史
+- 第 2 步用户的尝试（2026-10-17 15:39）：
+  1. "它会输出一个专门给研究员的命令，只告诉它此次任务的内容，其余一律不泄露"
+  2. "全都不给：系统 prompt 指的是主 agent 的 prompt，跟研究员不搭；主 agent 应该拆分我的问题，把更精细的对于任务的要求给子 agent；拆分方案更不用说了，这是主 agent 负责的内容，不应泄露给子 agent"
+  3. "应该多出研究员的结果，结果单"
+- 第 4 步反馈（2026-10-17）：对的——① 专门给研究员、只含这次任务；② 主 agent 的系统 prompt 不给（理由"不搭"对准了事实 2）、拆分方案不给、给加工过的任务要求而不是原样转交；③ 结果以结果单回来（固定词汇用对了）。纠正一处说法："泄露"不对，这里不是保密问题，是长度 / 成本 / 抓重点。缺口（以问题形式留给用户补）：① "命令"是什么形式——用他自己第 3 题的"结果单总是对回某张调用单"反推；单上至少写哪两样；② 只说了不给什么，没说给什么：研究员自己的"你是谁、该怎么做"从哪来、谁什么时候写好；只收到"查 FastAPI 优缺点"、不知道"为了小项目、要和 Flask 比"时会查出什么，这个信息该由谁写在哪；③ 研究员的 10 个网页（约 3 万字）和十几张调用单 / 结果单进不进主 agent 的历史（用事实 2 说理由），"结果"具体是研究员说的哪一部分
+- 用户补缺口（2026-10-17 15:57）：
+  1. "dict 形式，有 id 和内容的形式。如果只是普通文字：那么脚本会读到；这个东西至少有 id 和命令内容"
+  2. "研究员 system prompt 直接由我写好，在固定文件中保存，每次固定调用相同的（在创建它子 agent 的时候就能写了）；它查回来的东西就只有 FastAPI 的优缺点，没有任何比较参照物。这句话应该由主 agent 写进命令中"
+  3. "3 万字会造成 agent 消耗增加，更慢、更贵，假如是多轮回 agent，则上下文会很快被占用……所以应该只放结果单或者结果之类的。研究员交给主 agent 的结果应该是最终结果，而非中间的内容，中间内容可以靠 python 代码代为输出，交给用户监控"
+- 反馈：① 结论对（是一张调用单，带编号和参数）；普通文字只会被 Python 程序打印出来，没有任何 agent 会照着做——对；缺"派给谁"（编号是 Claude Code 程序自动带的，模型要写的是派给谁 + 任务那段话）。② 全对：研究员的系统 prompt 由他事先写好、启动时交出去；"为了小项目、和 Flask 比"由主 agent 写进任务那段话。③ 全对，并且自己提出"中间过程交给 Python 程序给人看"——这正是要验证的问题 ①
+- 原理第 5–6 步（2026-10-17，同一条回复，不含代码、不出现代码名字）：
+  - 第 5 步机制：① 工具清单里有一个专门的工具 Agent，主 agent 的模型对它开调用单，参数写"派给谁 + 任务那段话"；② Claude Code 程序执行这张单 = 新开一个子 agent，它第一轮的历史只有：子 agent 定义里的系统 prompt + 任务那段话（+ 它自己的工具清单），没有主 agent 的历史、结果单、系统 prompt；③ 子 agent 在 Claude Code 程序里跑自己的循环；④ 跑完后，只有它的最后一条消息变成主 agent 那张 Agent 调用单的结果单（编号对回），另附一行 agentId（以后续接用，这次不讲）；⑤ 子 agent 中间的消息 Python 程序也能收到，带"属于哪张 Agent 调用单"的标记，主 agent 的模型看不到。为什么别的不行：引用用户自己第 1–3 题的推理。和 Read 对比：同样是调用单 / 结果单，区别是执行的是一整个模型循环
+  - 点名没讲但会影响预测的分支（`issue.md` 第 13 条的教训）：子 agent 默认在后台跑，模型需要结果时会自己选择等，消息顺序可能和场景不同，知识点 8 专门讲。另说明"这次不讲"：子 agent 工具清单的默认值、续接、层数上限
+  - 第 6 步场景：FastAPI 问题，从主 agent 开 Agent 调用单到结果单回来，逐步说明谁做什么、每一步 Python 程序看到什么
+- 用户（2026-10-17 16:14）："读懂了"，没有提问
+- 第 7 步收尾复述（2026-10-17）：请他不看前文、用自己的话说 4 点：① 主 agent 怎么把活交出去（是什么、上面写什么）；② 子 agent 第一轮看到什么、看不到什么、为什么这样设计；③ 子 agent 交回什么、怎么回到主 agent；④ Python 程序看到什么、怎么分辨一条消息是主 agent 的还是子 agent 的
+- 收尾复述（2026-10-17 16:17）：① "交的是执行单，里面有子 agent 的名称和任务要求，是一个 dict"；② "能看到 system prompt 和任务要求、工具，其余的例如用户提示词、主 agent system prompt 一律看不到，这样防止子 agent 角色混淆以及额外支出"；③ "交回来的是结果单，有 id 和最终结果，通过任务 id 进行比对交回方式"；④ "通过不同编号或者状态（不太知道如何表达）"
+- 判定：**过关**。①②③ 机制正确（"执行单"应为"调用单"，"任务 id"应为"Agent 调用单的编号"，当场纠正）；④ 不完整但不是误解——当场补全（Python 程序也能收到子 agent 的中间消息；标记里装 Agent 调用单的编号，主 agent 的消息标记为空），代码阶段运行前的预测会再测。记 `review.md` Q22 = 3、Q23 = 2
+- 原理阶段卡住升级：0 次
+- 代码阶段·第 1 步：概念 ↔ 代码名字（2026-10-17，按 `issue.md` 第 12 条；用户要求不用表格，逐条写）：
+  - 子 agent 定义 → `AgentDefinition`（新类）：本次用 `description`（一句介绍，主 agent 靠它挑人，细讲在知识点 5）、`prompt`（子 agent 自己的系统 prompt）、`tools`（子 agent 自己的工具清单）、`model`（可选）
+  - 交出子 agent 定义 → `ClaudeAgentOptions(agents={名字: AgentDefinition(...)})`；字典的键就是调用单上"派给谁"写的名字
+  - 主 agent 能派活 → 主 agent 的 `tools` 里加 `"Agent"`；init 的工具列表里显示为 `Task`
+  - Agent 调用单 → `ToolUseBlock`，`name == "Agent"`，`input["subagent_type"]` = 派给谁，`input["prompt"]` = 任务那段话（其他字段看运行打印）
+  - 结果单 → `ToolResultBlock`，`tool_use_id` = Agent 调用单的 `id`，`content` = 子 agent 最后一条消息 + `agentId` 一行
+  - 标记 → `parent_tool_use_id`（`AssistantMessage`、`UserMessage` 都有）：主 agent 的消息为 `None`，子 agent 的消息 = Agent 调用单的 `id`
+  - 点出 3 个易混点请用户回答：① `AgentDefinition` 的 `prompt` 和调用单 `input["prompt"]` 的区别（谁写、何时写、给谁看）；② `parent_tool_use_id` 是 `None` 和不是 `None` 各说明什么；③ 主 agent 的 `tools` 和 `AgentDefinition` 的 `tools` 各管谁
+- 代码级查证补充（2026-10-17 · SDK 0.2.162 · 命令行程序 2.1.288）：
+  - 0.2.162 `types.py`：`AgentDefinition` 字段 `description`、`prompt`、`tools`、`disallowedTools`、`model`、`skills`、`memory`、`mcpServers`、`initialPrompt`、`maxTurns`、`background`、`effort`、`permissionMode`（第 108–126 行）；`ClaudeAgentOptions.tools` 是"可用内置工具的基础集合"
+  - Tools reference（2026-10-17 读原文）：`Agent` 的 "Permission required" 为 No；"Launching the subagent doesn't itself prompt for permission. Claude Code checks the subagent's own tool calls against your permission rules as it runs"；`Read` 为 No、`Write` 为 Yes。来源：https://code.claude.com/docs/en/tools-reference
+  - Permissions（2026-10-17 读原文）：`Agent` 属于"don't ask before running"的工具；子 agent 继承主会话的权限模式。来源：https://code.claude.com/docs/en/agent-sdk/permissions
+  - **未查证**：`tools` 参数里写 `"Agent"` 还是 `"Task"`（按工具参考写 `"Agent"`，运行时看 init 列表核对）；Agent 调用单 `input` 里除 `subagent_type`、`prompt` 外的字段；子 agent 的 Write 调用单是否落到 `can_use_tool`（文档只说"按权限规则检查"）
+- 用户回答 3 个易混点（2026-10-17 17:27）：① "AgentDefinition 的 prompt 是 subagent 的 system prompt，而 input 的则是任务内容"；② "如果是 None，说明这是 main agent 的信息，如果有编号，则说明这是 subagent 的信息"；③ "AgentDefinition 的 tools 管的是这个子 agent 使用的工具，而主 agent 的 tools 管的是主 agent 以及 subagent 是否能调用（将 subagent 也看成工具）"
+- 判定：① 对，补"谁写、何时写"（系统 prompt：你在运行前写；任务那段话：主 agent 的模型在运行中写；两样都给子 agent 的模型看）；② 对；③ 前半对，后半纠正：工具是 Agent，不是子 agent 本身；主 agent 的 `tools` 里有没有 `"Agent"` 决定主 agent 能不能开 Agent 调用单；子 agent 能不能拿到主 agent 清单之外的工具——**未查证**（`tools` 是会话的"可用内置工具基础集合"，是否同时限制子 agent 没找到原文）
+- 词汇表加 3 条：Agent 调用单、子 agent 定义、标记
+- 代码分类请求（2026-10-17，L2 由用户先分）：列出 7 块——① import 加 `AgentDefinition`；② 写研究员的子 agent 定义；③ `ClaudeAgentOptions` 加 `agents` 并在主 agent 的 `tools` 里加 `"Agent"`；④ 消息循环遇到 Agent 调用单时打印派给谁和任务那段话；⑤ 每条 `AssistantMessage` / `UserMessage` 打印 `parent_tool_use_id`；⑥ Agent 调用单的结果单打印完整内容（现在截到 200 字）；⑦ 检查函数里已有的 `[check]` 打印（用来看子 agent 的 Write 会不会问到检查函数）
+- 用户代码分类（2026-10-18 11:36，隔天回来，没附理由，漏第 7 块）：1 支撑、2 核心、3 观察、4 观察、5 观察、6 观察
+- 批改：1、2、6 对；**3 错**→核心（不是临时的，验证完不会删；没有它主 agent 派不了活、研究员定义到不了 Claude Code 程序；判断观察代码就问"验证完会删吗"）；4 接受，但这是**我的失误**——现有代码已经打印每张调用单的 `name` 和 `input`，Agent 调用单会自动打出来，第 4 块不用新写，删掉；5 接受为观察，但判断条件（`parent_tool_use_id` 是否为 None）是本知识点要记住的机制，由用户自己写；7 漏了→观察（已存在，复用到问题 ③ 有答案为止）。提醒：下次附理由
+- 代码级查证补充（2026-10-18 · 命令行程序 2.1.288）：Claude Code subagents 文档原文 "Subagents inherit the built-in tools and MCP tools available in the main conversation, narrowed by two filters"；后台子 agent 保留的内置工具里有 `Read`、`Write`（第二道过滤）。推论：主 agent 的 `tools` 只放 `"Agent"` 时研究员拿不到 Read / Write，所以主 agent 的清单必须同时保留 Read、Write。来源：https://code.claude.com/docs/en/sub-agents。"主 agent 不准自己干活"留到知识点 10；这次靠提示词要求，再用打印核对（主 agent 自己开的 Read / Write 调用单标记为 None）
+- 大纲第 1 批（2026-10-18，3 部分）：① import 加 `AgentDefinition`（支撑，直接给）；② 研究员定义 `AgentDefinition(description=..., prompt=..., tools=["Read", "Write"], model="haiku")`，系统 prompt 由用户写（英文），必须包含：角色、只按任务那段话做事、缺信息时直说不知道不要猜（为实验 ② 准备）、交回内容简短；放哪由用户选（A：main.py；B：新文件 agents.py）；③ `ClaudeAgentOptions` 加 `agents={"researcher": ...}`，`tools=["Read", "Write", "Agent"]`，其余不变。要求：写完不运行，发来读回检查
+- 用户回复（2026-10-18 11:59）：① 选 B（新建 `agents.py`），并要求记下"学习过程的同时学会自己设计模块化架构"（已写进上面"用户的固定要求"和项目记忆）；② 认为主 agent 和子 agent 的 prompt 都应独立保存、统一管理；③ 代码已写好，`main.py` 已连上；说"subagent 的工具目前还是默认工具"，网上查到"应该加入 web_search tool"
+- 读回代码（2026-10-18，`agents.py` 595 字节、`main.py` 3457 字节，两个文件语法检查通过）：
+  - `agents.py`：`from claude_agent_sdk import AgentDefinition`；`researcher = AgentDefinition(description=..., prompt=..., tools=["Read", "Write"], model="haiku")`，`tools` 旁注释 `# should be web_search`
+  - `main.py`：`from agents import researcher`；`agents={"researcher": researcher}`、`tools=["Read", "Write", "Agent"]`，其余不变；没在 `main.py` 里 import `AgentDefinition`——对，`main.py` 用不到它
+  - `.gitignore` 加了 `personal_notes/`（新文件夹 `personal_notes/subagent.md`，用户自己的笔记）
+- 批改：结构（B）、`agents`、`tools` 都对。缺口在系统 prompt：只写了第 1 点（角色），缺第 2 点（只按任务那段话做事）、第 3 点（缺信息时说不知道、不要猜——实验 ② 的前提）、第 4 点（交回简短）；还写了 "gather ... from external sources"，但它没有任何上网的工具，会诱导模型编造；拼写 `reasearcher`
+- 用户说"还是默认工具"——纠正：`tools=["Read", "Write"]` 不是默认，是只给这两样；不写 `tools` 才是继承默认
+- WebSearch：工具名是 `WebSearch`（不是 `web_search`）；工具参考里 Permission required = Yes，会落到检查函数，而现在的 `check_tool` 对 Read / Write 以外一律拒绝；还要同时加进主 agent 的 `tools`（继承规则）；搜索要额外收费、结果每次不同，会干扰"子 agent 看得到什么"的实验。建议这次不加，等第一个真正需要上网的知识点再加（按需生长），由用户确认
+- prompt 独立成文件：给两个选项——A 现在就做（先设计再跑实验）；B 先跑完知识点 4 的实验，再单独做一步"搬 prompt"（同上次搬家的方案 C），建议 B（一次只改一类东西，出错时只有一个嫌疑；实验中 prompt 还会改）。设计由用户自己做（文件夹 / 文件名 / 谁来读 / 路径从哪来）
+- 用户回复（2026-10-18 12:34）：① 接受不加 WebSearch，"先改成从内部搜索"；② 已把系统 prompt 单独存成文件（等于选了 A：现在就做），目前只有研究员的，理由"有单独位置可以更改 system prompt"
+- 读回（2026-10-18，两个文件语法检查通过）：新文件 `system_prompt.py`（一个字符串常量 `researcher_prompt`）；`agents.py` 改为 `from system_prompt import researcher_prompt`、`prompt=researcher_prompt`。prompt 现在 4 点都有：角色、只按任务内容做事、找不到就说 "I don't know" 不要编、少于 300 词并附来源；"external sources" 已改成 "given sources"
+- 批改：通过。非阻塞：拼写（reasearcher、frabicate、"You final"、"any out limit behavior must prohibited"）；第 3 点写的是"搜不到信息时"，实验 ② 更需要"任务里没给的信息就说不知道"，可选加强；`tools` 旁注释 `# should be web_search` 已过时、会误导。设计取舍（由用户决定，已说明）：`.py` 里放字符串——不用写读文件代码、可以直接 import；放 `.txt` / `.md` 文件（demo 的做法）——改起来不用管引号和转义，但要多写读文件的代码和路径
+- 大纲第 2 批（观察代码，2 部分）：⑤ `AssistantMessage`、`UserMessage` 两个分支开头按 `message.parent_tool_use_id` 打印来源（`None` → `[main]`，否则 `[sub]` + 编号；判断条件由用户自己写）；调用单加印 `block.id`，结果单加印 `block.tool_use_id`，用来对编号；⑥ 结果单内容截取从 200 临时改到 1500，跑完改回
+- 第 1 次运行计划：提示词 "Use the researcher agent to read notes/a.txt and summarize it in 3 bullet points. Do not read the file yourself."；目的：在真实消息里完整看一次派活流程（问题 ①）；预测题 5 道：Tools 列表里派活工具的名字、会不会出现 `[check]`、关键消息顺序（谁开单 / 标记 / 结果单回到哪）、研究员 Read 调用单的标记等于哪张单的编号、主 agent 收到的结果单里除了总结还有什么。提醒：子 agent 默认后台运行，顺序可能和预测不同
+- 用户提问（2026-10-18 13:03）：在调用单分支写了 `print(block.tool_use_id)`，报"没有 tool_use_id"。读回 `main.py` 消息循环：两个分支开头的 `[main]` / `[sub]: 编号` 已写对（用 `== None`，PEP 8 建议 `is None`，非阻塞）；结果单内容截取已改为 1500；问题：调用单分支用了结果单的字段名，结果单分支还没加编号打印。**卡住升级 1 次（提示级）**：指出调用单自己的编号字段是 `id`，`tool_use_id` 属于结果单（对回调用单用），对应 `review.md` Q9
+- 第 1 次运行（2026-10-18 13:13，**命令行程序已自动更新到 2.1.302**，模型 `claude-haiku-5-5`）。**用户没有交预测**（固定要求第 4 条），直接发了输出
+  - init：`Tools: ['Task', 'Read', 'Write']`——`tools` 里写 `"Agent"` 生效，列表里显示为 `Task`（未查证项已核实）
+  - `[main]` Agent 调用单：`input` 有 `description`（"Summarize notes/a.txt"）、`subagent_type`（"researcher"）、`prompt`；主 agent 自己在任务那段话里加了工作目录的绝对路径和"只交回 3 条"——上下文只能靠这段话传
+  - 紧接着 `[main]` 结果单（`tool_use_id` = Agent 调用单 id）内容是 **"Async agent launched successfully … agentId: … The agent is working in the background. You will be notified automatically when it completes …"**——后台运行，结果单是"已启动"回执，不是研究员的总结
+  - `[sub]: <Agent 调用单 id>` 的 Read 调用单（`notes\a.txt` 绝对路径）和它的结果单（文件内容，带行号），标记都等于 Agent 调用单的 id；整次运行**没有出现 `[check]`**（Agent 不需要批准；项目内 Read 工具自己放行）
+  - `[main]` 主 agent 先说"已启动、完成后再给总结"→ **第一次 `ResultMessage` success（2 轮，$0.00126）**
+  - 之后循环没有结束：`[sub]` 研究员的最后一条消息（3 条要点 + Source）；**又一条 init**（同一个 session_id）；`[main]` 空行；`[main]` 主 agent 给出总结（措辞与研究员原文略有不同）→ **第二次 `ResultMessage` success（1 轮，$0.00229）**。主 agent 没有再开 Read 调用单，总结来自后台完成后的通知；通知本身没被我们的代码打印出来（推测：通知以 `UserMessage` 字符串内容或 `Task*` 类 `SystemMessage` 的形式到达，我们的代码只打印列表内容和 init——**未查证**，下一次运行可加打印核对；正好对应 Q10 的第 1 个坑）
+  - 第 3 行 "claude.ai connectors are disabled because ANTHROPIC_API_KEY … is set" 是新版命令行程序的提示，用 `.env` 里的密钥时正常出现，无影响
+- **我的教学更正**：第 6 步场景（"研究员的最后一条消息作为结果单交回"）只描述了前台运行；本次实际是后台运行（官方默认），Agent 调用单的结果单是启动回执，最后一条消息经后台完成通知回到主 agent，`query()` 会出现两次 `ResultMessage`。开场 / 第 5 步提醒过"后台可能让顺序不同"，但没说结果单内容会不同——讲解不完整，已在回复中承认，先请用户自己从输出里找差异
+- 问题 ① 已有答案（标记为 `None` = 主 agent；标记 = Agent 调用单 id = 子 agent）
+- 用户看输出作答（2026-10-18 13:33）：1 "Task，不一样，我们的是 agent"（对）；2 "并没出现 check，这个不已经被我们删了吗？"（前提错，打印还在，记 Q17）；3 两张调用单大意对，"sub 拿到调用单"不准（记 Q23）；4 "等于自己的调用单编号"（错，等于 Agent 调用单的编号，记 Q23）；5 "多了具体的文件地址，可以防止 subagent 走错"（对；根本原因是研究员看不到主 agent 的历史，背景只能写进任务那段话）。关键题（后台）没有作答
+- **用户意见**："你让我在输出中找内容说真的非常耗时，我不可能一行行数，包括回答你的问题也是"→ 采纳：以后批改时我自己把相关的几行原文摘出来贴在问题旁边，用户只看摘出来的部分作答；不再要求用户标行号（`issue.md` 第 19 条）
+- 后台机制：用户没答，按他的意见由我直接讲（摘出原文那句 "The agent is working in the background. You will be notified automatically when it completes"）：Agent 调用单的结果单 = 启动回执；主 agent 先结束一轮（第一次 success）；研究员做完后 Claude Code 程序通知主 agent，主 agent 再跑一轮（又一条 init、第二次 success）；总结来自这条通知。通知长什么样还没看到——加观察代码 ⑦ 去看（同时在真实数据里重学 Q10 第 1 个坑）
+- 第 2 次运行计划（上下文隔离，问题 ②）：观察代码 ⑦：`UserMessage.content` 是字符串时也打印；`SystemMessage` 不是 init 时打印 `subtype`。提示词："My secret code is 4827. Use the researcher agent. The task you give it must be exactly: 'What is the user's secret code? Answer only from information in this task.' Do not put the code in the task."。3 道预测：Agent 调用单的任务那段话里有没有 4827；研究员最后说什么；主 agent 最后告诉你什么。判读规则：如果任务那段话里出现了 4827，这次实验作废（是主 agent 泄露，不是隔离失败）
+- 读回 `main.py`（2026-10-18 15:15 后）：观察代码 ⑦ 写对——`SystemMessage` 非 init 打印 `subtype`；`UserMessage` 在 `content` 是 `str` 时打印；调用单打印 `block.id`，结果单打印 `tool_use_id`；改用 `is None`
+- 第 2 次运行（2026-10-18，命令行程序 2.1.302，上下文隔离 / 问题 ②）。**用户第二次没交预测**
+  - Agent 调用单 `prompt` 原样是 "What is the user's secret code? Answer only from information in this task."——没有 4827，实验有效
+  - 研究员一条 Read 都没开，直接答："I don't know. The task information I was given (the question itself and the git status snapshot) does not contain a secret code."
+  - **问题 ② 结论：子 agent 看不到主 agent 的对话（用户原话里的暗号）**
+  - **新发现**：研究员说它收到的除了问题，还有一份"git status snapshot"——Claude Code 程序会把环境信息（git 状态）附进子 agent 第一轮的历史；Subagents 文档的表里没列这一项（只列了自己的系统 prompt、任务那段话、工具定义、项目 CLAUDE.md）。**我的更正**：第 5 步说"第一轮历史只有三样东西"不完整，还要加上 Claude Code 程序附带的环境信息（这次看到的是 git 状态）；`setting_sources=[]` 挡不住它（git 状态的具体来源和开关 **未查证**）
+  - 后台完成通知在 Python 程序这边的样子：`SystemMessage` 的 `subtype` 依次出现 `commands_changed`、`background_tasks_changed`、`task_started`、`thinking_tokens`、`task_updated`、`task_notification`；`UserMessage` 字符串分支**没有**打印任何东西——通知到 Python 是 `task_notification` 这条系统消息（SDK 0.2.162 `types.py` 里是 `TaskNotificationMessage`，字段有 `status`、`summary`、`tool_use_id`、`output_file`），不是 `UserMessage`。这次 Q10 第 1 个坑没出现；`[sub]` 后面跟空行，很可能是只装了思考块的 `AssistantMessage`（Q10 第 3 个坑，没打印块类型，**未确认**）
+  - 主 agent 第二轮："The researcher agent answered that it doesn't know the code…"；两次 success，合计约 $0.0025
+- 用户提问："subagent 是不是只用了一轮就探出来了？"——回答：是一轮（没开任何调用单），但它没"探出来"暗号，而是直接说不知道，这正是隔离的证据
+- 第 3 次运行计划（问题 ③）：提示词 "Use the researcher agent to read notes/a.txt and save a 3-bullet summary to output/summary_sub.md. Do not do it yourself."；预测：`[check]` 会不会出现、出现时那张 Write 调用单的标记是 `[main]` 还是 `[sub]`、Write 结果单 `is_error`、文件最后在不在 `output/`
+- 用户（2026-10-18 15:22）：补交第 2 次运行的预测（看过结果后写的：① 不会出现 4827、② 会说不知道 4827、③ 主 agent 会告诉我正确答案），并先写第 3 次的预测再运行：① 会出现 `[check]`，"因为工具是继承关系"；② `[main]`；③ `None`；④ 文件会出现——并说明"此次我故意往最极端的方向猜"，结果"正好与我想的完全相反"。保留"运行前预测"（用行动回答了）
+- 第 3 次运行（2026-10-18，命令行程序 2.1.302，问题 ③）：
+  - 主 agent 的 Agent 调用单 `prompt` 里自己写了 "Working directory: D:\\MyProjects\\..."，还加了"output 目录不存在就创建""只写总结""完成后回一行确认"
+  - `[sub]` Read `notes\a.txt` 成功；`[sub]` Write `output\summary_sub.md` → 结果单 `is_error: True`，内容 **`<tool_use_error>Subagents should return findings as text, not write report files. Include this content in your final response instead.</tool_use_error>`**
+  - 整次**没有 `[check]`**；拒绝消息也不是我们 `check_Write` 的那句——是 Claude Code 程序**内置**的拦截（子 agent 不应写"报告文件"），在问检查函数之前就挡住了。`device_list_dir` 核对：`output/` 里只有旧的 `wrong.md`，没有 `summary_sub.md`
+  - 研究员最后说 "My instructions prohibit writing summary .md files"——它的系统 prompt 里根本没有这句，是模型给被拒找的理由（不能信模型的解释，要看结果单原文，对应 Q16 / Q19）；主 agent 也说"That's odd … configuration may be blocking"
+  - **查证**：Subagents 文档（全文两段读完）和 Tools reference 的 Write 部分都没有写这条规则——**未查证（文档未记载），只有 2.1.302 的实测证据**；拦截判断标准（按 .md？按"总结 / 报告"内容？）未知
+  - 对知识点 6"用文件交接"有直接影响：研究员写 .md 笔记可能被这条内置规则挡住，知识点 6 开讲前要先查清
+- 预测批改：4 条都没对上，但第 1、3、4 条错在一个谁都不知道的内置规则上；第 2 条（`[main]`）是真缺口——活派给研究员，Write 调用单是研究员开的，标记一定是 `[sub]`；"故意往极端猜"会让预测失去作用（预测是用来暴露自己真实理解的），请他以后写真实的猜测
+- 第 3b 次运行计划：提示词改为写 `output/summary_sub.txt`（我们的 `check_Write` 会因为不是 .md 拒绝）；如果内置拦截放过 .txt，就能看到 `[check]` 是不是由 `[sub]` 的 Write 触发、结果单是不是我们那句 deny 消息；如果内置拦截连 .txt 也挡，就说明它不按扩展名判断
+- 第 3b 次运行（2026-10-18 15:33，命令行程序 2.1.302）。预测：① 会出现 `[check]`、`[sub]`；② 结果单是内置规则那句；③ 文件不会出现
+  - `[sub]` Write `output\summary_sub.txt` → 紧接着 `[check] input_data is: D:\...\output\summary_sub.txt` → `[sub]` 结果单 `is_error: True`、内容 "The mission must inside folder 'output' and only .md file permitted"（我们 `check_Write` 的 deny 消息）。`device_list_dir` 核对：`output/` 里没有 `summary_sub.txt`
+  - 预测对照：① 对；② 错（是我们的检查函数，不是内置规则——内置规则放过了 .txt）；③ 对
+  - **问题 ③ 结论：子 agent 开的调用单也会问到 Python 程序里的检查函数**；内置"子 agent 不写报告文件"规则拦 .md、不拦这次的 .txt（判断标准仍未知）
+  - 查证补充：0.2.162 `types.py` 的 `ToolPermissionContext` 有 `agent_id` 字段（"If running within the context of a sub-agent, the sub-agent's ID"）——检查函数的第三个参数能分辨是不是子 agent 开的单，知识点 10 可用，**未实测**
+- 对照 demo（`example_program/research_agent/utils/message_handler.py`）：同样用 `parent_tool_use_id` 判断消息来源；但只认 `block.name == 'Task'`，而我们实测调用单里叫 `Agent`——在现在的命令行程序上，demo 的"Spawning"提示一次都不会出现；`agent.py` 的 `allowed_tools=["Task"]` 也是旧名
+- 必须记住的 5 件事（只含核心代码内容）：
+  1. 定义子 agent：`AgentDefinition(description, prompt=子 agent 自己的系统 prompt, tools, model)` → `ClaudeAgentOptions(agents={"名字": ...})`；主 agent 的 `tools` 要有 `"Agent"`（init 显示 `Task`），子 agent 的工具从主 agent 能用的工具里继承（→ `review.md` Q24）
+  2. 派活 = 主 agent 的模型开 Agent 调用单（`input`：`subagent_type`、`description`、`prompt`）；子 agent 第一轮只看到自己的系统 prompt + 任务那段话 + 工具 + Claude Code 程序附带的环境信息，看不到主 agent 的对话（4827 实验），背景只能靠主 agent 写进任务那段话（→ Q22）
+  3. `parent_tool_use_id`：`None` = 主 agent 的消息；否则等于派活那张 Agent 调用单的 `id`（不是子 agent 自己调用单的 id）（→ Q23）
+  4. 子 agent 默认后台：Agent 调用单的结果单是启动回执；完成时 Python 收到 `task_notification` 系统消息；主 agent 再跑一轮，`query()` 出现两次 success（→ Q25）
+  5. 子 agent 的调用单也会问到我们的检查函数；但内置规则（不写报告 .md）排在更前面；谁拦的看结果单原文（→ Q26）
+- 卡住升级次数：1（提示：`ToolUseBlock` 用 `id`、`ToolResultBlock` 用 `tool_use_id`）/ 部分代码 0 / 相似例子 0 → 保持 L2，升 L3 计数 0/2
+- 教学自查（对照 skill，引用原话）：
+  1. 第 5–6 步讲解不完整：我说"这个子 agent 第一轮的历史里只有三样东西"，场景写"研究员写出最后一条消息……作为结果单交给主 agent"——实测是后台启动回执 + 通知，且有 git 状态附带；只提了"消息顺序可能不同"。已在第 1、2 次运行批改中承认更正
+  2. 代码分类清单第 4 块是我列错（现有代码已打印调用单），用户分类时才发现
+  3. 第 1 次运行批改让用户"每题都标上你依据的是输出的第几行"——用户："我不可能一行行数"（`issue.md` 第 19 条），之后改为我摘原文
+  4. 开场 Q10 用了用户已忘的"结果单"（`issue.md` 第 17 条）；Q10 的三个坑当初由我写进大纲、用户没亲自撞过（`issue.md` 第 18 条）
+  5. 做得对的：每次结论都用 `device_list_dir` 核对文件夹实际内容；第 3 次运行没被模型"我的指令禁止"的说法带偏，按结果单原文判断是内置拦截，再设计 3b 区分
+  - 其余检查项（首行标注、要用户做的事放最前、批改前读回代码、查证标版本、文档改后读回）：无违规
+
