@@ -7,11 +7,13 @@ from claude_agent_sdk import (ClaudeAgentOptions, query, SystemMessage, Assistan
 from check_tools import check_tool
 from initialization import initialize_notes
 from agents import researcher # subagents
+from system_prompt import main_prompt
 
 async def main():
     initialize_notes()
 
     options = ClaudeAgentOptions(model="haiku",                     # model is haiku, the cheapest model
+                                 system_prompt=main_prompt,         # main agent's system prompt
                                  setting_sources=[],                # load no filesystem settings
                                  agents={"researcher": researcher}, # add subagents
                                  tools=["Read", "Write", "Agent"],  # this determine the tools be found by model
